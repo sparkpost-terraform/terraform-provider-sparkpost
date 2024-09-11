@@ -39,7 +39,7 @@ func (c *SparkPostClient) newRequest(method, endpoint string, body interface{}) 
 		return nil, err
 	}
 
-	req.Header.Set("Authoization", c.APIKey)
+	req.Header.Set("Authorization", c.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	return req, nil
