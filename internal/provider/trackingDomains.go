@@ -9,10 +9,14 @@ type TrackingDomain struct {
 	Domain string `json:"domain"`
 }
 
-func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool) error {
+func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {
 	body := map[string]interface{}{
 		"domain": domain,
 		"secure": https,
+	}
+
+	if subaccount > 0 {
+		body["subaccount_id"] = subaccount
 	}
 
 	req, err := c.newRequest("POST", "tracking-domains", body)

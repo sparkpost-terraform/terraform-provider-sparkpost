@@ -27,6 +27,12 @@ func resourceTrackingdomain() *schema.Resource {
 				ForceNew:    true,
 				Description: "Specifies if the domain should use HTTPS",
 			},
+			"subaccount": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				ForceNew:    true,
+				Description: "OOptional subnet account ID for creating the tracking domain in",
+			},
 		},
 	}
 }
@@ -36,7 +42,12 @@ func resourceTrackingDomainCreate(ctx context.Context, d *schema.ResourceData, m
 	domain := d.Get("domain").(string)
 	https := d.Get("https").(bool)
 
-	err := client.CreateTrackingDomain(domain, https)
+	var subaccount int
+	if v, ok := d.GetOk("subaccount"); ok {
+		subaccount = v.(int)
+	}
+
+	err := client.CreateTrackingDomain(domain, https, subaccount)
 	if err != nil {
 		return diag.FromErr(err)
 	}
