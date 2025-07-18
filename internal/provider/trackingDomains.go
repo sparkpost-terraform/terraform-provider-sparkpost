@@ -16,8 +16,6 @@ func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subacc
 		"secure": https,
 	}
 
-
-
 	req, err := c.newRequest("POST", "tracking-domains", body)
 	if err != nil {
 		return err
@@ -36,12 +34,16 @@ func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subacc
 	return nil
 }
 
-func (c *SparkPostClient) GetTrackingDomain(domain string) (*TrackingDomain, error) {
+func (c *SparkPostClient) GetTrackingDomain(domain string, subaccount int) (*TrackingDomain, error) {
 	endpoint := fmt.Sprintf("tracking-domains/%s", domain)
 
 	req, err := c.newRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if subaccount > 0 {
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
@@ -59,12 +61,16 @@ func (c *SparkPostClient) GetTrackingDomain(domain string) (*TrackingDomain, err
 	return &trackingDomain, nil
 }
 
-func (c *SparkPostClient) DeleteTrackingDomain(domain string) error {
+func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) error {
 	endpoint := fmt.Sprintf("tracking-domains/%s", domain)
 
 	req, err := c.newRequest("DELETE", endpoint, nil)
 	if err != nil {
 		return err
+	}
+
+	if subaccount > 0 {
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 204)

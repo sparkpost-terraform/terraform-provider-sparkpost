@@ -60,8 +60,13 @@ func resourceTrackingDomainCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*SparkPostClient)
 	domain := d.Id()
+	
+	var subaccount int
+	if v, ok := d.GetOk("subaccount"); ok {
+		subaccount = v.(int)
+	}	
 
-	_, err := client.GetTrackingDomain(domain)
+	_, err := client.GetTrackingDomain(domain, subaccount)
 	if err != nil {
 		if err == TrackingDomainNotFound {
 			d.SetId("")
@@ -76,8 +81,13 @@ func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m i
 func resourceTrackingDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*SparkPostClient)
 	domain := d.Id()
+	
+	var subaccount int
+	if v, ok := d.GetOk("subaccount"); ok {
+		subaccount = v.(int)
+	}	
 
-	err := client.DeleteTrackingDomain(domain)
+	err := client.DeleteTrackingDomain(domain, subaccount)
 	if err != nil {
 		return diag.FromErr(err)
 	}
