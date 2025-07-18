@@ -89,7 +89,6 @@ func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) er
 
 func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subaccount int) error {
 	body := map[string]interface{}{
-		"domain": domain,
 		"secure": https,
 	}
 
@@ -107,10 +106,6 @@ func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subacc
 	resp, err := c.doRequest(req, 200)
 	if err != nil {
 		return err
-	}
-
-	if resp.StatusCode == 404 {
-		return TrackingDomainNotFound
 	}
 
 	defer resp.Body.Close()

@@ -134,7 +134,7 @@ func (r *trackingDomainResource) Update(ctx context.Context, req resource.Update
     }
 
     subaccount := int(plan.Subaccount.ValueInt64())
-    domain := plan.Id.ValueString()
+    domain := plan.Domain.ValueString()
     https := plan.HTTPS.ValueBool()
 
     err := r.client.UpdateTrackingDomain(domain, https, subaccount)
@@ -143,6 +143,7 @@ func (r *trackingDomainResource) Update(ctx context.Context, req resource.Update
         return
     }
 
+    plan.Id = types.StringValue(domain)
     diags = resp.State.Set(ctx, &plan)
     resp.Diagnostics.Append(diags...)
 }
