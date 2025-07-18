@@ -93,7 +93,9 @@ func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subacc
 		"secure": https,
 	}
 
-	req, err := c.newRequest("PUT", "tracking-domains", body)
+    endpoint := fmt.Sprintf("tracking-domains/%s", domain)
+
+	req, err := c.newRequest("PUT", endpoint, body)
 	if err != nil {
 		return err
 	}
