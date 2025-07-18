@@ -26,6 +26,7 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"sparkpost_tracking_domain": resourceTrackingdomain(),
+			"sparkpost_domain": resourceDomain(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}

@@ -7,57 +7,49 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceTrackingdomain() *schema.Resource {
+func resourceDomain() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceTrackingDomainCreate,
-		ReadContext:   resourceTrackingDomainRead,
-		DeleteContext: resourceTrackingDomainDelete,
+		CreateContext: resourceDomainCreate,
+		ReadContext:   resourceDomainRead,
+		DeleteContext: resourceDomainDelete,
 
 		Schema: map[string]*schema.Schema{
 			"domain": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The domain to be used for tracking links",
-			},
-			"https": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				ForceNew:    true,
-				Description: "Specifies if the domain should use HTTPS",
+				Description: "The domain to be used for sending or bounces",
 			},
 			"subaccount": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				ForceNew:    true,
 				Description: "Optional subnet account ID for creating the tracking domain in",
-			},
+			},        
 		},
 	}
 }
 
-func resourceTrackingDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*SparkPostClient)
 	domain := d.Get("domain").(string)
-	https := d.Get("https").(bool)
 
 	var subaccount int
 	if v, ok := d.GetOk("subaccount"); ok {
 		subaccount = v.(int)
 	}
 
-	err := client.CreateTrackingDomain(domain, https, subaccount)
+	err := client.CreateDomain(domain, subaccount)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	d.SetId(domain)
 
-	return resourceTrackingDomainRead(ctx, d, m)
+	return resourceDomainRead(ctx, d, m)
 }
 
-func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*SparkPostClient)
 	domain := d.Id()
 	
@@ -66,9 +58,9 @@ func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m i
 		subaccount = v.(int)
 	}	
 
-	_, err := client.GetTrackingDomain(domain, subaccount)
+	_, err := client.GetDomain(domain, subaccount)
 	if err != nil {
-		if err == TrackingDomainNotFound {
+		if err == DomainNotFound {
 			d.SetId("")
 			return nil
 		}
@@ -78,7 +70,7 @@ func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m i
 	return nil
 }
 
-func resourceTrackingDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*SparkPostClient)
 	domain := d.Id()
 	
@@ -87,7 +79,7 @@ func resourceTrackingDomainDelete(ctx context.Context, d *schema.ResourceData, m
 		subaccount = v.(int)
 	}	
 
-	err := client.DeleteTrackingDomain(domain, subaccount)
+	err := client.DeleteDomain(domain, subaccount)
 	if err != nil {
 		return diag.FromErr(err)
 	}
