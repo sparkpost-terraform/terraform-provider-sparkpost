@@ -1,44 +1,78 @@
-package main
+package provider
 
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func Provider() *schema.Provider {
-	return &schema.Provider{
-		Schema: map[string]*schema.Schema{
-			"api_url": {
-				Type:        schema.TypeString,
-				Required:    false,
-				Optional:    true,
-				Description: "API URL for SparkPost",
-				Default:     "https://api.eu.sparkpost.com/api/v1/",
+// Ensure implementation satisfies the framework interfaces
+var _ provider.Provider = &sparkpostProvider{}
+
+func New() provider.Provider {
+	return &sparkpostProvider{}
+}
+
+type sparkpostProvider struct {
+	client *SparkPostClient
+}
+
+// Provider-level config model
+type providerModel struct {
+	APIUrl types.String `tfsdk:"api_url"`
+	APIKey types.String `tfsdk:"api_key"`
+}
+
+func (p *sparkpostProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "sparkpost"
+}
+
+func (p *sparkpostProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"api_url": schema.StringAttribute{
+				Optional:            true,
+				Description:         "API URL for SparkPost",
+				MarkdownDescription: "API URL for SparkPost",
 			},
-			"api_key": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "API Key for SparkPost",
-				Sensitive:   true,
+			"api_key": schema.StringAttribute{
+				Required:            true,
+				Sensitive:           true,
+				Description:         "API Key for SparkPost",
+				MarkdownDescription: "API Key for SparkPost",
 			},
 		},
-		ResourcesMap: map[string]*schema.Resource{
-			"sparkpost_tracking_domain": resourceTrackingdomain(),
-			"sparkpost_domain": resourceDomain(),
-		},
-		ConfigureContextFunc: providerConfigure,
 	}
 }
 
-func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
-	var diags diag.Diagnostics
+func (p *sparkpostProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var config providerModel
 
-	apiUrl := d.Get("api_url").(string)
-	apiKey := d.Get("api_key").(string)
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
 
-	client := NewSparkPostClient(apiUrl, apiKey)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	return client, diags
+	client := NewSparkPostClient(config.APIUrl.ValueString(), config.APIKey.ValueString())
+
+	p.client = client
+	resp.DataSourceData = client
+	resp.ResourceData = client
+}
+
+func (p *sparkpostProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewTrackingDomainResource,
+		NewDomainResource,
+	}
+}
+
+func (p *sparkpostProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{}
 }

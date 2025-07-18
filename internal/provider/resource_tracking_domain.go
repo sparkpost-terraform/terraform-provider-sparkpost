@@ -1,98 +1,153 @@
-package main
+package provider
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceTrackingdomain() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceTrackingDomainCreate,
-		ReadContext:   resourceTrackingDomainRead,
-		DeleteContext: resourceTrackingDomainDelete,
+type trackingDomainResource struct {
+	client *SparkPostClient
+}
 
-		Schema: map[string]*schema.Schema{
-			"domain": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The domain to be used for tracking links",
+func NewTrackingDomainResource() resource.Resource {
+	return &trackingDomainResource{}
+}
+
+type trackingDomainResourceModel struct {
+	Domain     types.String `tfsdk:"domain"`
+	HTTPS      types.Bool   `tfsdk:"https"`
+	Subaccount types.Int64  `tfsdk:"subaccount"`
+	Id         types.String `tfsdk:"id"`
+}
+
+func (r *trackingDomainResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_tracking_domain"
+}
+
+func (r *trackingDomainResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"domain": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "The domain to be used for tracking links",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
-			"https": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				ForceNew:    true,
-				Description: "Specifies if the domain should use HTTPS",
+			"https": schema.BoolAttribute{
+				Optional:            true,
+				MarkdownDescription: "Specifies if the domain should use HTTPS",
+				Computed:            false,
 			},
-			"subaccount": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "Optional subnet account ID for creating the tracking domain in",
+			"subaccount": schema.Int64Attribute{
+				Optional:            true,
+				MarkdownDescription: "Optional subnet account ID for creating the tracking domain in",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
+			},
+			"id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "The domain name used as the resource ID",
 			},
 		},
 	}
 }
 
-func resourceTrackingDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*SparkPostClient)
-	domain := d.Get("domain").(string)
-	https := d.Get("https").(bool)
-
-	var subaccount int
-	if v, ok := d.GetOk("subaccount"); ok {
-		subaccount = v.(int)
+func (r *trackingDomainResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
 	}
-
-	err := client.CreateTrackingDomain(domain, https, subaccount)
-	if err != nil {
-		return diag.FromErr(err)
+	client, ok := req.ProviderData.(*SparkPostClient)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *SparkPostClient, got: %T", req.ProviderData),
+		)
+		return
 	}
-
-	d.SetId(domain)
-
-	return resourceTrackingDomainRead(ctx, d, m)
+	r.client = client
 }
 
-func resourceTrackingDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*SparkPostClient)
-	domain := d.Id()
-	
-	var subaccount int
-	if v, ok := d.GetOk("subaccount"); ok {
-		subaccount = v.(int)
-	}	
+func (r *trackingDomainResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan trackingDomainResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	_, err := client.GetTrackingDomain(domain, subaccount)
+	subaccount := int(plan.Subaccount.ValueInt64())
+	domain := plan.Domain.ValueString()
+	https := plan.HTTPS.ValueBool()
+
+	err := r.client.CreateTrackingDomain(domain, https, subaccount)
+	if err != nil {
+		resp.Diagnostics.AddError("Create Error", err.Error())
+		return
+	}
+
+	plan.Id = plan.Domain
+
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state trackingDomainResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	subaccount := int(state.Subaccount.ValueInt64())
+	domain := state.Id.ValueString()
+
+	_, err := r.client.GetTrackingDomain(domain, subaccount)
 	if err != nil {
 		if err == TrackingDomainNotFound {
-			d.SetId("")
-			return nil
+			resp.State.RemoveResource(ctx)
+			return
 		}
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError("Read Error", err.Error())
+		return
 	}
 
-	return nil
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
 }
 
-func resourceTrackingDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(*SparkPostClient)
-	domain := d.Id()
-	
-	var subaccount int
-	if v, ok := d.GetOk("subaccount"); ok {
-		subaccount = v.(int)
-	}	
+func (r *trackingDomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Update Not Implemented",
+		"Update is not yet implemented for this resource and must be recreated to apply changes.",
+	)
+}
 
-	err := client.DeleteTrackingDomain(domain, subaccount)
-	if err != nil {
-		return diag.FromErr(err)
+func (r *trackingDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state trackingDomainResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	d.SetId("") // Remove resource from state
+	subaccount := int(state.Subaccount.ValueInt64())
+	domain := state.Id.ValueString()
 
-	return nil
+	err := r.client.DeleteTrackingDomain(domain, subaccount)
+	if err != nil {
+		resp.Diagnostics.AddError("Delete Error", err.Error())
+		return
+	}
+
+	resp.State.RemoveResource(ctx)
 }
