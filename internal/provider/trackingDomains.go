@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 type TrackingDomain struct {
@@ -15,13 +16,15 @@ func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subacc
 		"secure": https,
 	}
 
-	if subaccount > 0 {
-		body["subaccount_id"] = subaccount
-	}
+
 
 	req, err := c.newRequest("POST", "tracking-domains", body)
 	if err != nil {
 		return err
+	}
+
+	if subaccount > 0 {
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
