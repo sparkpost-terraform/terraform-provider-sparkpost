@@ -126,10 +126,25 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *trackingDomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError(
-		"Update Not Implemented",
-		"Update is not yet implemented for this resource and must be recreated to apply changes.",
-	)
+    var plan trackingDomainResourceModel
+    diags := req.Plan.Get(ctx, &plan)
+    resp.Diagnostics.Append(diags...)
+    if resp.Diagnostics.HasError() {
+        return
+    }
+
+    subaccount := int(plan.Subaccount.ValueInt64())
+    domain := plan.Id.ValueString()
+    https := plan.HTTPS.ValueBool()
+
+    err := r.client.UpdateTrackingDomain(domain, https, subaccount)
+    if err != nil {
+        resp.Diagnostics.AddError("Update Error", err.Error())
+        return
+    }
+
+    diags = resp.State.Set(ctx, &plan)
+    resp.Diagnostics.Append(diags...)
 }
 
 func (r *trackingDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

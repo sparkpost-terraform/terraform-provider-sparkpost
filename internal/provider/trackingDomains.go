@@ -87,4 +87,33 @@ func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) er
 	return nil
 }
 
+func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subaccount int) error {
+	body := map[string]interface{}{
+		"domain": domain,
+		"secure": https,
+	}
+
+	req, err := c.newRequest("PUT", "tracking-domains", body)
+	if err != nil {
+		return err
+	}
+
+	if subaccount > 0 {
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	}
+
+	resp, err := c.doRequest(req, 200)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode == 404 {
+		return TrackingDomainNotFound
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
 var TrackingDomainNotFound = fmt.Errorf("tracking domain not found")

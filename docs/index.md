@@ -20,4 +20,4 @@ description: |-
 
 ### Optional
 
-- `api_url` (String) API URL for SparkPost
+- `api_url` (String) API URL for SparkPost. Check the sparkpost documentation for possible URLs.
