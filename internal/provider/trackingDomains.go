@@ -113,4 +113,40 @@ func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subacc
 	return nil
 }
 
+func (c *SparkPostClient) VerifyTrackingDomain(domain string, subaccount int) error {
+	endpoint := fmt.Sprintf("tracking-domains/%s/verify", domain)
+
+	req, err := c.newRequest("POST", endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("failed to build request: %w", err)
+	}
+
+	if subaccount > 0 {
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	}
+
+	resp, err := c.doRequest(req, 200)
+	if err != nil {
+		return fmt.Errorf("verification request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var respBody struct {
+		Results struct {
+			Verified    bool   `json:"verified"`
+			CNAMEStatus string `json:"cname_status"`			
+		} `json:"results"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		return fmt.Errorf("failed to parse verification response: %w", err)
+	}
+
+	if respBody.Results.Verified != true {
+		return fmt.Errorf("verification failed: cname_status = '%s'", respBody.Results.CNAMEStatus)
+	}
+
+	return nil
+}
+
 var TrackingDomainNotFound = fmt.Errorf("tracking domain not found")

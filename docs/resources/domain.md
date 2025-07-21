@@ -21,6 +21,8 @@ description: |-
 
 ### Optional
 
+- `default_bounce_domain` (Boolean) Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set
+- `shared_with_subaccounts` (Boolean) Optional to share the domain with all subaccounts. Cannot be used if a subaccount is set
 - `subaccount` (Number) Optional subaccount ID for creating the tracking domain in
 
 ### Read-Only

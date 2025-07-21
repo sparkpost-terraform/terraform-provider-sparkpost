@@ -76,9 +76,15 @@ func (p *sparkpostProvider) Resources(ctx context.Context) []func() resource.Res
 	return []func() resource.Resource{
 		NewTrackingDomainResource,
 		NewDomainResource,
+		NewDomainVerificationResource,
+		NewBounceVerificationResource,
+		NewTrackingDomainVerificationResource,
+		NewTrackingDomainAssociationResource,
 	}
 }
 
 func (p *sparkpostProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+	    NewSubAccountsDataSource,
+	}
 }
