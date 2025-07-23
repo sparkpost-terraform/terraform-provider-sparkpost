@@ -95,22 +95,20 @@ func (r *domainResource) ValidateConfig(ctx context.Context, req resource.Valida
         return
     }
 
-    subaccountSet := !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown()
-    sharedSet := !config.Shared.IsNull() && !config.Shared.IsUnknown()
-    defaultSet := !config.DefaultBounce.IsNull() && !config.DefaultBounce.IsUnknown()
-
-    if subaccountSet && sharedSet {
-        resp.Diagnostics.AddError(
-            "Invalid Configuration",
-            "The attributes 'subaccount' and 'shared_with_subaccounts' cannot both be set. Please specify only one.",
-        )
+    if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() &&
+        !config.Shared.IsNull() && !config.Shared.IsUnknown() && config.Shared.ValueBool() {
+	    resp.Diagnostics.AddError(
+		    "Invalid Configuration",
+		    "'subaccount' and 'shared_with_subaccounts' cannot both be set. Please specify only one.",
+	    )
     }
 
-    if subaccountSet && defaultSet {
-        resp.Diagnostics.AddError(
-            "Invalid Configuration",
-            "The attributes 'subaccount' and 'default_bounce_domain' cannot both be set. Please specify only one.",
-        )
+    if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() &&
+        !config.DefaultBounce.IsNull() && !config.DefaultBounce.IsUnknown() && config.DefaultBounce.ValueBool() {
+	    resp.Diagnostics.AddError(
+		    "Invalid Configuration",
+		    "'subaccount' and 'default_bounce_domain' cannot both be set. Please specify only one.",
+	    )
     }
 }
 
