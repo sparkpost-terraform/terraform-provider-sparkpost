@@ -88,28 +88,29 @@ func (r *domainResource) Configure(ctx context.Context, req resource.ConfigureRe
 }
 
 func (r *domainResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-    var config domainResourceModel
-    diags := req.Config.Get(ctx, &config)
-    resp.Diagnostics.Append(diags...)
-    if resp.Diagnostics.HasError() {
-        return
-    }
+	var config domainResourceModel
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-    if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() &&
-        !config.Shared.IsNull() && !config.Shared.IsUnknown() && config.Shared.ValueBool() {
-	    resp.Diagnostics.AddError(
-		    "Invalid Configuration",
-		    "'subaccount' and 'shared_with_subaccounts' cannot both be set. Please specify only one.",
-	    )
-    }
+	// If subaccount is explicitly 0, treat as invalid
+	if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() && config.Subaccount.ValueInt64() == 0 {
+		resp.Diagnostics.AddError(
+			"Invalid Configuration",
+			"'subaccount' cannot be 0. Provide a valid subaccount ID or set it to null.",
+		)
+	}
 
-    if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() &&
-        !config.DefaultBounce.IsNull() && !config.DefaultBounce.IsUnknown() && config.DefaultBounce.ValueBool() {
-	    resp.Diagnostics.AddError(
-		    "Invalid Configuration",
-		    "'subaccount' and 'default_bounce_domain' cannot both be set. Please specify only one.",
-	    )
-    }
+	// If subaccount is set and shared is explicitly true, it's invalid
+	if !config.Subaccount.IsNull() && !config.Subaccount.IsUnknown() &&
+		!config.Shared.IsNull() && !config.Shared.IsUnknown() && config.Shared.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Invalid Configuration",
+			"'subaccount' and 'shared_with_subaccounts = true' cannot both be set. Please specify only one.",
+		)
+	}
 }
 
 func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
