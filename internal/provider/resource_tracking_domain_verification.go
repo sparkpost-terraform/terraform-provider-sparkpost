@@ -104,8 +104,14 @@ func (r *trackingDomainVerificationResource) Read(ctx context.Context, req resou
 	subaccount := int(state.Subaccount.ValueInt64())
 	domain := state.Id.ValueString()
 
-	err := r.client.VerifyTrackingDomain(domain, subaccount)
+	_, err := r.client.GetTrackingDomain(domain, subaccount)
+
 	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+    
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}

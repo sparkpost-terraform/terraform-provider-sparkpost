@@ -104,8 +104,14 @@ func (r *bounceVerificationResource) Read(ctx context.Context, req resource.Read
 	subaccount := int(state.Subaccount.ValueInt64())
 	domain := state.Id.ValueString()
 
-	err := r.client.VerifyDomainCNAME(domain, subaccount)
+	_, err := r.client.GetDomain(domain, subaccount)
+	
 	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+    		resp.State.RemoveResource(ctx)
+    		return
+    	}
+	
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}
