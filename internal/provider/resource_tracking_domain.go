@@ -124,7 +124,7 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 
     state.Domain = types.StringValue(t.Domain)
     state.HTTPS = types.BoolValue(t.HTTPS)
-    state.Subaccount = state.Subaccount 
+    state.Subaccount = state.Subaccount.ValueInt64()
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
