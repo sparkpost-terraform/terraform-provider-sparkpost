@@ -59,7 +59,7 @@ func (r *domainResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				},
 			},  
 			"default_bounce_domain": schema.BoolAttribute{
-				Optional:            true,
+				Optional:            true
 				MarkdownDescription: "Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
@@ -160,10 +160,10 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-    state.Domain = state.Domain
+    state.Domain = state.Domain.ValueString()
     state.Shared = types.BoolValue(d.SharedWithSubaccounts)
     state.DefaultBounce = types.BoolValue(d.DefaultBounceDomain)
-    state.Subaccount = state.Subaccount
+    state.Subaccount = state.Subaccount.ValueInt64()
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
