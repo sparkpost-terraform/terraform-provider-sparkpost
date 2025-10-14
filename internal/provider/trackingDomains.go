@@ -11,10 +11,6 @@ type TrackingDomain struct {
 	HTTPS bool `json:"secure"`
 }
 
-type getTrackingDomainResponse struct {
-	Results TrackingDomain `json:"results"`
-}
-
 func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {
 	body := map[string]interface{}{
 		"domain": domain,
@@ -39,7 +35,6 @@ func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subacc
 	return nil
 }
 
-
 func (c *SparkPostClient) GetTrackingDomain(domain string, subaccount int) (*TrackingDomain, error) {
 	endpoint := fmt.Sprintf("tracking-domains/%s", domain)
 
@@ -49,7 +44,7 @@ func (c *SparkPostClient) GetTrackingDomain(domain string, subaccount int) (*Tra
 	}
 
 	if subaccount > 0 {
-		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
@@ -58,13 +53,13 @@ func (c *SparkPostClient) GetTrackingDomain(domain string, subaccount int) (*Tra
 	}
 	defer resp.Body.Close()
 
-	var respData getTrackingDomainResponse
-	err = json.NewDecoder(resp.Body).Decode(&respData)
+	var trackingDomain TrackingDomain
+	err = json.NewDecoder(resp.Body).Decode(&trackingDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	return &respData.Results, nil
+	return &trackingDomain, nil
 }
 
 func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) error {

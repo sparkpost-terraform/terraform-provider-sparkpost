@@ -6,10 +6,6 @@ import (
 	"strconv"
 )
 
-type getDomainResponse struct {
-	Results TargetDomain `json:"results"`
-}
-
 type TargetDomain struct {
 	Domain string `json:"domain"`
 	SharedWithSubaccounts bool `json:"shared_with_subaccounts"`
@@ -50,7 +46,7 @@ func (c *SparkPostClient) GetDomain(domain string, subaccount int) (*TargetDomai
 	}
 
 	if subaccount > 0 {
-		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
@@ -59,13 +55,13 @@ func (c *SparkPostClient) GetDomain(domain string, subaccount int) (*TargetDomai
 	}
 	defer resp.Body.Close()
 
-	var respData getDomainResponse
-	err = json.NewDecoder(resp.Body).Decode(&respData)
+	var targetDomain TargetDomain
+	err = json.NewDecoder(resp.Body).Decode(&targetDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	return &respData.Results, nil
+	return &targetDomain, nil
 }
 
 func (c *SparkPostClient) DeleteDomain(domain string, subaccount int) error {
