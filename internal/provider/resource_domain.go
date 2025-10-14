@@ -189,7 +189,3 @@ func (r *domainResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	resp.State.RemoveResource(ctx)
 }
-
-func (r *domainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-    resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-}
