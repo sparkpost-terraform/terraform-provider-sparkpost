@@ -11,8 +11,9 @@ type getDomainResponse struct {
 }
 
 type TargetDomain struct {
+	Domain string `json:"domain"`
 	SharedWithSubaccounts bool `json:"shared_with_subaccounts"`
-	DefaultBounceDomain   bool `json:"is_default_bounce_domain"`
+	DefaultBounceDomain bool `json:"is_default_bounce_domain"`
 }
 
 func (c *SparkPostClient) CreateDomain(domain string, subaccount int, shared bool, defaultBounce bool) error {
