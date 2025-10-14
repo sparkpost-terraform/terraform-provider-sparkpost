@@ -8,7 +8,6 @@ import (
 
 type TrackingDomain struct {
 	Domain string `json:"domain"`
-	HTTPS bool `json:"secure"`
 }
 
 func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {

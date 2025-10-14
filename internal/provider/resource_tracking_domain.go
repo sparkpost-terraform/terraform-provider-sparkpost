@@ -112,7 +112,7 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 	subaccount := int(state.Subaccount.ValueInt64())
 	domain := state.Id.ValueString()
 
-	t, err := r.client.GetTrackingDomain(domain, subaccount)
+	_, err := r.client.GetTrackingDomain(domain, subaccount)
 	if err != nil {
 		if err == TrackingDomainNotFound {
 			resp.State.RemoveResource(ctx)
@@ -121,10 +121,6 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}
-
-    state.Domain = types.StringValue(t.Domain)
-    state.HTTPS = types.BoolValue(t.HTTPS)
-    state.Subaccount = state.Subaccount 
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)

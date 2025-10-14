@@ -147,10 +147,10 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-    domain := state.Id.ValueString()
 	subaccount := int(state.Subaccount.ValueInt64())
-	
-	d, err := r.client.GetDomain(domain, subaccount)
+	domain := state.Id.ValueString()
+
+	_, err := r.client.GetDomain(domain, subaccount)
 	if err != nil {
 		if err == DomainNotFound {
 			resp.State.RemoveResource(ctx)
@@ -159,11 +159,6 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}
-
-    state.Domain = types.StringValue(d.Domain)
-    state.Shared = types.BoolValue(d.SharedWithSubaccounts)
-    state.DefaultBounce = types.BoolValue(d.DefaultBounceDomain)
-    state.Subaccount = state.Subaccount
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
