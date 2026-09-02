@@ -8,6 +8,7 @@ import (
 
 type TrackingDomain struct {
 	Domain string `json:"domain"`
+	HTTPS  bool   `json:"secure"`
 }
 
 func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {
@@ -18,18 +19,18 @@ func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subacc
 
 	req, err := c.newRequest("POST", "tracking-domains", body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build create tracking domain request: %w", err)
 	}
 
 	if subaccount > 0 {
-	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
 	if err != nil {
-		return err
+		return fmt.Errorf("create tracking domain request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return nil
 }
@@ -39,26 +40,30 @@ func (c *SparkPostClient) GetTrackingDomain(domain string, subaccount int) (*Tra
 
 	req, err := c.newRequest("GET", endpoint, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build get tracking domain request: %w", err)
 	}
 
 	if subaccount > 0 {
-	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
 	if err != nil {
-		return nil, err
+		if isNotFound(err) {
+			return nil, ErrTrackingDomainNotFound
+		}
+		return nil, fmt.Errorf("get tracking domain request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
-	var trackingDomain TrackingDomain
-	err = json.NewDecoder(resp.Body).Decode(&trackingDomain)
-	if err != nil {
-		return nil, err
+	var body struct {
+		Results TrackingDomain `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("failed to parse get tracking domain response: %w", err)
 	}
 
-	return &trackingDomain, nil
+	return &body.Results, nil
 }
 
 func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) error {
@@ -66,23 +71,22 @@ func (c *SparkPostClient) DeleteTrackingDomain(domain string, subaccount int) er
 
 	req, err := c.newRequest("DELETE", endpoint, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build delete tracking domain request: %w", err)
 	}
 
 	if subaccount > 0 {
-	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 204)
 	if err != nil {
-		return err
+		if isNotFound(err) {
+			// Already gone: deleting a nonexistent tracking domain is not an error.
+			return nil
+		}
+		return fmt.Errorf("delete tracking domain request failed: %w", err)
 	}
-
-	if resp.StatusCode == 404 {
-		return TrackingDomainNotFound
-	}
-
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return nil
 }
@@ -92,23 +96,22 @@ func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subacc
 		"secure": https,
 	}
 
-    endpoint := fmt.Sprintf("tracking-domains/%s", domain)
+	endpoint := fmt.Sprintf("tracking-domains/%s", domain)
 
 	req, err := c.newRequest("PUT", endpoint, body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build update tracking domain request: %w", err)
 	}
 
 	if subaccount > 0 {
-	   req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
 	}
 
 	resp, err := c.doRequest(req, 200)
 	if err != nil {
-		return err
+		return fmt.Errorf("update tracking domain request failed: %w", err)
 	}
-
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return nil
 }
@@ -129,12 +132,12 @@ func (c *SparkPostClient) VerifyTrackingDomain(domain string, subaccount int) er
 	if err != nil {
 		return fmt.Errorf("verification request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var respBody struct {
 		Results struct {
 			Verified    bool   `json:"verified"`
-			CNAMEStatus string `json:"cname_status"`			
+			CNAMEStatus string `json:"cname_status"`
 		} `json:"results"`
 	}
 
@@ -142,11 +145,11 @@ func (c *SparkPostClient) VerifyTrackingDomain(domain string, subaccount int) er
 		return fmt.Errorf("failed to parse verification response: %w", err)
 	}
 
-	if respBody.Results.Verified != true {
+	if !respBody.Results.Verified {
 		return fmt.Errorf("verification failed: cname_status = '%s'", respBody.Results.CNAMEStatus)
 	}
 
 	return nil
 }
 
-var TrackingDomainNotFound = fmt.Errorf("tracking domain not found")
+var ErrTrackingDomainNotFound = fmt.Errorf("tracking domain not found")

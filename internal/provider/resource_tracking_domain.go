@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -11,6 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+var _ resource.ResourceWithImportState = &trackingDomainResource{}
 
 type trackingDomainResource struct {
 	client *SparkPostClient
@@ -111,9 +115,9 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 	subaccount := int(state.Subaccount.ValueInt64())
 	domain := state.Id.ValueString()
 
-	_, err := r.client.GetTrackingDomain(domain, subaccount)
+	t, err := r.client.GetTrackingDomain(domain, subaccount)
 	if err != nil {
-		if err == TrackingDomainNotFound {
+		if errors.Is(err, ErrTrackingDomainNotFound) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -121,31 +125,48 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	state.Domain = types.StringValue(t.Domain)
+	state.HTTPS = types.BoolValue(t.HTTPS)
+
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 }
 
+func (r *trackingDomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	domain, subaccount, hasSubaccount, diags := parseImportID(req.ID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), domain)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("domain"), domain)...)
+	if hasSubaccount {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("subaccount"), subaccount)...)
+	}
+}
+
 func (r *trackingDomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-    var plan trackingDomainResourceModel
-    diags := req.Plan.Get(ctx, &plan)
-    resp.Diagnostics.Append(diags...)
-    if resp.Diagnostics.HasError() {
-        return
-    }
+	var plan trackingDomainResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-    subaccount := int(plan.Subaccount.ValueInt64())
-    domain := plan.Domain.ValueString()
-    https := plan.HTTPS.ValueBool()
+	subaccount := int(plan.Subaccount.ValueInt64())
+	domain := plan.Domain.ValueString()
+	https := plan.HTTPS.ValueBool()
 
-    err := r.client.UpdateTrackingDomain(domain, https, subaccount)
-    if err != nil {
-        resp.Diagnostics.AddError("Update Error", err.Error())
-        return
-    }
+	err := r.client.UpdateTrackingDomain(domain, https, subaccount)
+	if err != nil {
+		resp.Diagnostics.AddError("Update Error", err.Error())
+		return
+	}
 
-    plan.Id = types.StringValue(domain)
-    diags = resp.State.Set(ctx, &plan)
-    resp.Diagnostics.Append(diags...)
+	plan.Id = types.StringValue(domain)
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *trackingDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

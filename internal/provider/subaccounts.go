@@ -1,4 +1,4 @@
-﻿package provider
+package provider
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ type Subaccount struct {
 	Name string `json:"name"`
 }
 
-func (c *SparkPostClient) ListSubaccounts() ([]Subaccount, error) {	
+func (c *SparkPostClient) ListSubaccounts() ([]Subaccount, error) {
 	req, err := c.newRequest("GET", "subaccounts", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
@@ -20,7 +20,7 @@ func (c *SparkPostClient) ListSubaccounts() ([]Subaccount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("subaccounts request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var body struct {
 		Results []Subaccount `json:"results"`

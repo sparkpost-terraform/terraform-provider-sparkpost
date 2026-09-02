@@ -1,16 +1,17 @@
-﻿package provider
+package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	
+
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 )
 
 type trackingDomainAssociationResource struct {
@@ -23,7 +24,7 @@ func NewTrackingDomainAssociationResource() resource.Resource {
 
 type trackingDomainAssociationResourceModel struct {
 	Domain         types.String `tfsdk:"domain"`
-	TrackingDomain types.String  `tfsdk:"tracking_domain"`
+	TrackingDomain types.String `tfsdk:"tracking_domain"`
 	Subaccount     types.Int64  `tfsdk:"subaccount"`
 	Id             types.String `tfsdk:"id"`
 }
@@ -48,7 +49,7 @@ func (r *trackingDomainAssociationResource) Schema(ctx context.Context, req reso
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
-			},        
+			},
 			"subaccount": schema.Int64Attribute{
 				Optional:            true,
 				MarkdownDescription: "Optional subnet account ID that contains the domain",
@@ -117,20 +118,24 @@ func (r *trackingDomainAssociationResource) Read(ctx context.Context, req resour
 
 	actualTrackingDomain, err := r.client.GetTrackingDomainAssociation(domain, subaccount, trackingDomain)
 	if err != nil {
+		if errors.Is(err, ErrDomainNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}
 
-    if actualTrackingDomain != trackingDomain {
-    	resp.Diagnostics.AddWarning(
-    		"Tracking Domain Mismatch",
-    		fmt.Sprintf("The current tracking domain '%s' does not match the configured value '%s'. "+
-    			"This may indicate it was edited outside of Terraform.", actualTrackingDomain, trackingDomain),
-    	)
-    }
+	if actualTrackingDomain != trackingDomain {
+		resp.Diagnostics.AddWarning(
+			"Tracking Domain Mismatch",
+			fmt.Sprintf("The current tracking domain '%s' does not match the configured value '%s'. "+
+				"This may indicate it was edited outside of Terraform.", actualTrackingDomain, trackingDomain),
+		)
+	}
 
-    diags = resp.State.SetAttribute(ctx, path.Root("tracking_domain"), types.StringValue(actualTrackingDomain))
-    resp.Diagnostics.Append(diags...)
+	diags = resp.State.SetAttribute(ctx, path.Root("tracking_domain"), types.StringValue(actualTrackingDomain))
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *trackingDomainAssociationResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -145,14 +150,14 @@ func (r *trackingDomainAssociationResource) Delete(ctx context.Context, req reso
 		return
 	}
 
-    subaccount := int(state.Subaccount.ValueInt64())
-    domain := state.Domain.ValueString()
-    
-    err := r.client.AssociateTrackingDomain(domain, subaccount, "")
-    if err != nil {
-    	resp.Diagnostics.AddError("Delete Error", err.Error())
-    	return
-    }    
+	subaccount := int(state.Subaccount.ValueInt64())
+	domain := state.Domain.ValueString()
+
+	err := r.client.AssociateTrackingDomain(domain, subaccount, "")
+	if err != nil {
+		resp.Diagnostics.AddError("Delete Error", err.Error())
+		return
+	}
 
 	resp.State.RemoveResource(ctx)
 }
