@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, vet & unit test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Unit test
+        run: go test ./... -v
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: golangci-lint
+        # `go run pkg@version` builds golangci-lint using its own go.mod
+        # requirement, ignoring our toolchain directive - force it to build
+        # with a Go new enough to analyze this module (go.mod declares
+        # toolchain go1.24.4), otherwise it refuses to run at all.
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.5 run ./...
+        env:
+          GOTOOLCHAIN: go1.24.4
+
+  docs:
+    name: Docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      # tfplugindocs needs a terraform binary to export the provider schema.
+      # Without one on PATH it tries to download its own, which hits a known
+      # expired-signing-key issue in the hc-install version it's pinned to.
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Generate docs
+        run: go generate ./...
+      - name: Fail if docs are out of date
+        run: |
+          if [ -n "$(git status --porcelain docs)" ]; then
+            echo "docs/ is out of date. Run 'go generate ./...' and commit the result."
+            git diff docs
+            exit 1
+          fi

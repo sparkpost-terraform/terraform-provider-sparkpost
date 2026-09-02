@@ -1,16 +1,15 @@
-﻿package provider
+package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type bounceVerificationResource struct {
@@ -19,12 +18,6 @@ type bounceVerificationResource struct {
 
 func NewBounceVerificationResource() resource.Resource {
 	return &bounceVerificationResource{}
-}
-
-type bounceVerificationResourceModel struct {
-	Domain     types.String `tfsdk:"domain"`
-	Subaccount types.Int64  `tfsdk:"subaccount"`
-	Id         types.String `tfsdk:"id"`
 }
 
 func (r *bounceVerificationResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -106,13 +99,11 @@ func (r *bounceVerificationResource) Read(ctx context.Context, req resource.Read
 	domain := state.Id.ValueString()
 
 	_, err := r.client.GetDomain(domain, subaccount)
-	
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-    		resp.State.RemoveResource(ctx)
-    		return
-    	}
-	
+		if errors.Is(err, ErrDomainNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}

@@ -1,9 +1,9 @@
-﻿package provider
+package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -106,13 +106,11 @@ func (r *domainVerificationResource) Read(ctx context.Context, req resource.Read
 	domain := state.Id.ValueString()
 
 	_, err := r.client.GetDomain(domain, subaccount)
-	
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, ErrDomainNotFound) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-
 		resp.Diagnostics.AddError("Read Error", err.Error())
 		return
 	}

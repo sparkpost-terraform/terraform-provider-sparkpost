@@ -1,0 +1,35 @@
+# Acceptance tests exercise real SparkPost resources against a live
+# account (create/read/update/delete). They are manual-only by design -
+# never wired to push/pull_request - so they don't run against production
+# without someone deliberately choosing to.
+name: Acceptance Tests
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Acceptance test
+        env:
+          TF_ACC: "1"
+          SPARKPOST_API_KEY: ${{ secrets.SPARKPOST_API_KEY }}
+          SPARKPOST_API_URL: ${{ secrets.SPARKPOST_API_URL }}
+        run: |
+          if [ -z "$SPARKPOST_API_KEY" ]; then
+            echo "SPARKPOST_API_KEY secret is not configured."
+            exit 1
+          fi
+          go test ./... -run TestAcc -v -timeout 20m

@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -36,7 +36,7 @@ func (p *sparkpostProvider) Schema(ctx context.Context, req provider.SchemaReque
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"api_url": schema.StringAttribute{
-				Optional:            true,
+				Required:            true,
 				Description:         "API URL for SparkPost",
 				MarkdownDescription: "API URL for SparkPost. Check the sparkpost documentation for possible URLs.",
 			},
@@ -60,10 +60,10 @@ func (p *sparkpostProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-    apiUrl := config.APIUrl.ValueString()
-    if !strings.HasSuffix(apiUrl, "/") {
-        apiUrl = apiUrl + "/"
-    }
+	apiUrl := config.APIUrl.ValueString()
+	if !strings.HasSuffix(apiUrl, "/") {
+		apiUrl = apiUrl + "/"
+	}
 
 	client := NewSparkPostClient(apiUrl, config.APIKey.ValueString())
 
@@ -85,6 +85,6 @@ func (p *sparkpostProvider) Resources(ctx context.Context) []func() resource.Res
 
 func (p *sparkpostProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-	    NewSubAccountsDataSource,
+		NewSubAccountsDataSource,
 	}
 }

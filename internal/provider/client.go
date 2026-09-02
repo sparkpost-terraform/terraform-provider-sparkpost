@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -45,6 +46,24 @@ func (c *SparkPostClient) newRequest(method, endpoint string, body interface{}) 
 	return req, nil
 }
 
+// apiError carries the HTTP status of a failed request so callers can
+// distinguish a 404 (not found) from other failures without string-matching
+// the error message.
+type apiError struct {
+	StatusCode int
+	Status     string
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("request failed with status: %s", e.Status)
+}
+
+// isNotFound reports whether err is an apiError with a 404 status.
+func isNotFound(err error) bool {
+	var apiErr *apiError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
+}
+
 func (c *SparkPostClient) doRequest(req *http.Request, expectedCode int) (*http.Response, error) {
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -52,8 +71,8 @@ func (c *SparkPostClient) doRequest(req *http.Request, expectedCode int) (*http.
 	}
 
 	if resp.StatusCode != expectedCode {
-		defer resp.Body.Close()
-		return resp, fmt.Errorf("Request failed with status: %s", resp.Status)
+		defer func() { _ = resp.Body.Close() }()
+		return resp, &apiError{StatusCode: resp.StatusCode, Status: resp.Status}
 	}
 
 	return resp, nil

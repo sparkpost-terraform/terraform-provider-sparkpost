@@ -2,16 +2,20 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+var _ resource.ResourceWithImportState = &domainResource{}
 
 type domainResource struct {
 	client *SparkPostClient
@@ -22,11 +26,11 @@ func NewDomainResource() resource.Resource {
 }
 
 type domainResourceModel struct {
-	Domain         types.String `tfsdk:"domain"`
-	Subaccount     types.Int64  `tfsdk:"subaccount"`
-	Id             types.String `tfsdk:"id"`
-	Shared         types.Bool   `tfsdk:"shared_with_subaccounts"`
-	DefaultBounce  types.Bool   `tfsdk:"default_bounce_domain"`
+	Domain        types.String `tfsdk:"domain"`
+	Subaccount    types.Int64  `tfsdk:"subaccount"`
+	Id            types.String `tfsdk:"id"`
+	Shared        types.Bool   `tfsdk:"shared_with_subaccounts"`
+	DefaultBounce types.Bool   `tfsdk:"default_bounce_domain"`
 }
 
 func (r *domainResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -56,14 +60,14 @@ func (r *domainResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
-			},  
+			},
 			"default_bounce_domain": schema.BoolAttribute{
 				Optional:            true,
 				MarkdownDescription: "Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
-			},      
+			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The domain name used as the resource ID",
@@ -79,7 +83,7 @@ func (r *domainResource) Configure(ctx context.Context, req resource.ConfigureRe
 	client, ok := req.ProviderData.(*SparkPostClient)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
+			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected *SparkPostClient, got: %T", req.ProviderData),
 		)
 		return
@@ -149,9 +153,9 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 	subaccount := int(state.Subaccount.ValueInt64())
 	domain := state.Id.ValueString()
 
-	_, err := r.client.GetDomain(domain, subaccount)
+	d, err := r.client.GetDomain(domain, subaccount)
 	if err != nil {
-		if err == DomainNotFound {
+		if errors.Is(err, ErrDomainNotFound) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -159,15 +163,30 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	state.Domain = types.StringValue(d.Domain)
+	state.Shared = types.BoolValue(d.SharedWithSubaccounts)
+	state.DefaultBounce = types.BoolValue(d.DefaultBounceDomain)
+
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 }
 
 func (r *domainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError(
-		"Update Not Supported",
-		"This resource does not support update in-place. To change attributes, the resource must be recreated.",
-	)
+	// No-op: all attributes require replacement, so Terraform never calls Update.
+}
+
+func (r *domainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	domain, subaccount, hasSubaccount, diags := parseImportID(req.ID)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), domain)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("domain"), domain)...)
+	if hasSubaccount {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("subaccount"), subaccount)...)
+	}
 }
 
 func (r *domainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
