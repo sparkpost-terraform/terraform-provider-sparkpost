@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, vet & unit test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Unit test
+        run: go test ./... -v
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: golangci-lint
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.5 run ./...
+
+  docs:
+    name: Docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Generate docs
+        run: go generate ./...
+      - name: Fail if docs are out of date
+        run: |
+          if [ -n "$(git status --porcelain docs)" ]; then
+            echo "docs/ is out of date. Run 'go generate ./...' and commit the result."
+            git diff docs
+            exit 1
+          fi
+
+  # Acceptance tests exercise real SparkPost resources and need a live
+  # account. They only run when SPARKPOST_API_KEY is configured as a
+  # repository secret, and are skipped entirely for PRs from forks (which
+  # never have access to secrets).
+  acceptance:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: Acceptance test
+        env:
+          TF_ACC: "1"
+          SPARKPOST_API_KEY: ${{ secrets.SPARKPOST_API_KEY }}
+          SPARKPOST_API_URL: ${{ secrets.SPARKPOST_API_URL }}
+        run: |
+          if [ -z "$SPARKPOST_API_KEY" ]; then
+            echo "SPARKPOST_API_KEY secret is not configured; skipping acceptance tests."
+            exit 0
+          fi
+          go test ./... -run TestAcc -v -timeout 20m
