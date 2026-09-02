@@ -58,5 +58,8 @@ release:
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
   # If you want to manually examine the release before its live, uncomment this line:
   # draft: true
+  # Mark it as a GitHub prerelease when the tag has a semver prerelease
+  # part, e.g. v1.1.0-beta.1 or v1.1.0-rc1.
+  prerelease: auto
 changelog:
   disable: true
