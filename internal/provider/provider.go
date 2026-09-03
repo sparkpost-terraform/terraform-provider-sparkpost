@@ -80,6 +80,7 @@ func (p *sparkpostProvider) Resources(ctx context.Context) []func() resource.Res
 		NewBounceVerificationResource,
 		NewTrackingDomainVerificationResource,
 		NewTrackingDomainAssociationResource,
+		NewSubaccountResource,
 	}
 }
 
