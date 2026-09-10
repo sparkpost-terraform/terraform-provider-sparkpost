@@ -7,8 +7,9 @@ import (
 )
 
 type TrackingDomain struct {
-	Domain string `json:"domain"`
-	HTTPS  bool   `json:"secure"`
+	Domain                 string `json:"domain"`
+	HTTPS                  bool   `json:"secure"`
+	UsesManagedCertificate bool   `json:"uses_managed_certificate"`
 }
 
 func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {
@@ -148,6 +149,61 @@ func (c *SparkPostClient) VerifyTrackingDomain(domain string, subaccount int) er
 	if !respBody.Results.Verified {
 		return fmt.Errorf("verification failed: cname_status = '%s'", respBody.Results.CNAMEStatus)
 	}
+
+	return nil
+}
+
+// CheckTrackingDomainCertificateEligibility reports whether SparkPost will
+// issue a managed TLS certificate for the domain, without changing anything.
+func (c *SparkPostClient) CheckTrackingDomainCertificateEligibility(domain string, subaccount int) (bool, error) {
+	endpoint := fmt.Sprintf("tracking-domains/%s/certificate/check", domain)
+
+	req, err := c.newRequest("POST", endpoint, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to build certificate eligibility request: %w", err)
+	}
+
+	if subaccount > 0 {
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	}
+
+	resp, err := c.doRequest(req, 200)
+	if err != nil {
+		return false, fmt.Errorf("certificate eligibility check failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var respBody struct {
+		Results struct {
+			SupportsManagedCertificate bool `json:"supportsManagedCertificate"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		return false, fmt.Errorf("failed to parse certificate eligibility response: %w", err)
+	}
+
+	return respBody.Results.SupportsManagedCertificate, nil
+}
+
+// EnableTrackingDomainManagedCertificate initiates Let's Encrypt issuance for
+// the tracking domain. SparkPost has no endpoint to disable it again.
+func (c *SparkPostClient) EnableTrackingDomainManagedCertificate(domain string, subaccount int) error {
+	endpoint := fmt.Sprintf("tracking-domains/%s/certificate/enable", domain)
+
+	req, err := c.newRequest("POST", endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("failed to build enable managed certificate request: %w", err)
+	}
+
+	if subaccount > 0 {
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	}
+
+	resp, err := c.doRequest(req, 200)
+	if err != nil {
+		return fmt.Errorf("enable managed certificate request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
 
 	return nil
 }
