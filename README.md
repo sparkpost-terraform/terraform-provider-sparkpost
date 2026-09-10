@@ -6,6 +6,23 @@ Not all areas are covered and it's not 100% at present but it works. There are v
 
 If you have a resource you would like adding, please raise an issue.
 
+### Resources
+
+- `sparkpost_subaccount`
+- `sparkpost_domain`
+- `sparkpost_domain_ownership_verification`
+- `sparkpost_domain_bounce_verification`
+- `sparkpost_tracking_domain`
+- `sparkpost_tracking_domain_verification`
+- `sparkpost_tracking_domain_association`
+- `sparkpost_tracking_domain_https_configuration`
+
+### Data sources
+
+- `sparkpost_subaccounts`
+
+See [docs/](docs/) for full schema reference, and [CHANGELOG.md](CHANGELOG.md) for release history.
+
 #### Note
 
 This Terraform provider is not affiliated with, endorsed by, or maintained by SparkPost. It is an independent project developed and maintained by volunteers.
