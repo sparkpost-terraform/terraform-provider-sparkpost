@@ -21,7 +21,6 @@ description: |-
 
 ### Optional
 
-- `https` (Boolean) Specifies if the domain should use HTTPS
 - `subaccount` (Number) Optional subnet account ID for creating the tracking domain in
 
 ### Read-Only
