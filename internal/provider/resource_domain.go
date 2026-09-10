@@ -56,16 +56,20 @@ func (r *domainResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			},
 			"shared_with_subaccounts": schema.BoolAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "Optional to share the domain with all subaccounts. Cannot be used if a subaccount is set",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"default_bounce_domain": schema.BoolAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -137,6 +141,8 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	plan.Id = plan.Domain
+	plan.Shared = types.BoolValue(shared)
+	plan.DefaultBounce = types.BoolValue(defaultBounce)
 
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)

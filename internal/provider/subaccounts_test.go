@@ -30,6 +30,32 @@ func TestListSubaccounts_Success(t *testing.T) {
 	}
 }
 
+func TestListSubaccounts_SortsByID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": []map[string]interface{}{
+				{"id": 5, "name": "STG"},
+				{"id": 2, "name": "LON"},
+				{"id": 1, "name": "DEV"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	got, err := client.ListSubaccounts()
+	if err != nil {
+		t.Fatalf("ListSubaccounts() error = %v", err)
+	}
+	want := []int{1, 2, 5}
+	for i, sa := range got {
+		if sa.ID != want[i] {
+			t.Errorf("ListSubaccounts()[%d].ID = %d, want %d (got order %+v)", i, sa.ID, want[i], got)
+		}
+	}
+}
+
 func TestListSubaccounts_RequestError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)

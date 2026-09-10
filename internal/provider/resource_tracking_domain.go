@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -47,8 +48,11 @@ func (r *trackingDomainResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"https": schema.BoolAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "Specifies if the domain should use HTTPS",
-				Computed:            false,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"subaccount": schema.Int64Attribute{
 				Optional:            true,
@@ -99,6 +103,7 @@ func (r *trackingDomainResource) Create(ctx context.Context, req resource.Create
 	}
 
 	plan.Id = plan.Domain
+	plan.HTTPS = types.BoolValue(https)
 
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
