@@ -3,6 +3,7 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 type Subaccount struct {
@@ -30,6 +31,12 @@ func (c *SparkPostClient) ListSubaccounts() ([]Subaccount, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("failed to decode subaccounts: %w", err)
 	}
+
+	// SparkPost doesn't guarantee a stable order in the response, which
+	// otherwise produces spurious reordering diffs in the data source.
+	sort.Slice(body.Results, func(i, j int) bool {
+		return body.Results[i].ID < body.Results[j].ID
+	})
 
 	return body.Results, nil
 }

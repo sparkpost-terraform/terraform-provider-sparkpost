@@ -6,6 +6,29 @@ import (
 	"testing"
 )
 
+func TestDoRequest_UnexpectedStatus_IncludesSparkPostMessage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"invalid domain","description":"domain must be verified first"}]}`))
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	req, err := client.newRequest("POST", "verify", nil)
+	if err != nil {
+		t.Fatalf("newRequest() error = %v", err)
+	}
+
+	_, err = client.doRequest(req, http.StatusOK)
+	if err == nil {
+		t.Fatal("doRequest() expected an error, got nil")
+	}
+	want := "request failed with status: 400 Bad Request: invalid domain: domain must be verified first"
+	if err.Error() != want {
+		t.Errorf("doRequest() error = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestDoRequest_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

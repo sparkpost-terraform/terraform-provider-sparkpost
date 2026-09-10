@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
 type SparkPostClient struct {
@@ -52,10 +54,39 @@ func (c *SparkPostClient) newRequest(method, endpoint string, body interface{}) 
 type apiError struct {
 	StatusCode int
 	Status     string
+	Message    string
 }
 
 func (e *apiError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("request failed with status: %s: %s", e.Status, e.Message)
+	}
 	return fmt.Sprintf("request failed with status: %s", e.Status)
+}
+
+// sparkPostErrorMessage extracts the human-readable message SparkPost embeds
+// in its {"errors": [{"message": ..., "description": ...}]} error bodies. If
+// the body doesn't match that shape, it falls back to the raw body text.
+func sparkPostErrorMessage(body []byte) string {
+	var parsed struct {
+		Errors []struct {
+			Message     string `json:"message"`
+			Description string `json:"description"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil || len(parsed.Errors) == 0 {
+		return strings.TrimSpace(string(body))
+	}
+
+	msgs := make([]string, 0, len(parsed.Errors))
+	for _, e := range parsed.Errors {
+		msg := e.Message
+		if e.Description != "" {
+			msg = fmt.Sprintf("%s: %s", msg, e.Description)
+		}
+		msgs = append(msgs, msg)
+	}
+	return strings.Join(msgs, "; ")
 }
 
 // isNotFound reports whether err is an apiError with a 404 status.
@@ -72,7 +103,8 @@ func (c *SparkPostClient) doRequest(req *http.Request, expectedCode int) (*http.
 
 	if resp.StatusCode != expectedCode {
 		defer func() { _ = resp.Body.Close() }()
-		return resp, &apiError{StatusCode: resp.StatusCode, Status: resp.Status}
+		body, _ := io.ReadAll(resp.Body)
+		return resp, &apiError{StatusCode: resp.StatusCode, Status: resp.Status, Message: sparkPostErrorMessage(body)}
 	}
 
 	return resp, nil
