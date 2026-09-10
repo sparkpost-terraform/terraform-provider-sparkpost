@@ -74,6 +74,88 @@ func TestUpdateTrackingDomain_SendsSecureFlag(t *testing.T) {
 	}
 }
 
+func TestCheckTrackingDomainCertificateEligibility_Eligible(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": map[string]interface{}{
+				"domain":                     "track.example.com",
+				"supportsManagedCertificate": true,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	eligible, err := client.CheckTrackingDomainCertificateEligibility("track.example.com", 0)
+	if err != nil {
+		t.Fatalf("CheckTrackingDomainCertificateEligibility() error = %v", err)
+	}
+	if !eligible {
+		t.Error("CheckTrackingDomainCertificateEligibility() = false, want true")
+	}
+}
+
+func TestCheckTrackingDomainCertificateEligibility_Ineligible(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": map[string]interface{}{
+				"domain":                     "track.example.com",
+				"supportsManagedCertificate": false,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	eligible, err := client.CheckTrackingDomainCertificateEligibility("track.example.com", 0)
+	if err != nil {
+		t.Fatalf("CheckTrackingDomainCertificateEligibility() error = %v", err)
+	}
+	if eligible {
+		t.Error("CheckTrackingDomainCertificateEligibility() = true, want false")
+	}
+}
+
+func TestEnableTrackingDomainManagedCertificate_Success(t *testing.T) {
+	var gotSubaccountHeader string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotSubaccountHeader = r.Header.Get("X-MSYS-SUBACCOUNT")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": map[string]interface{}{"message": "Certificate issuance initiated"},
+		})
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	if err := client.EnableTrackingDomainManagedCertificate("track.example.com", 42); err != nil {
+		t.Fatalf("EnableTrackingDomainManagedCertificate() error = %v", err)
+	}
+	if gotSubaccountHeader != "42" {
+		t.Errorf("X-MSYS-SUBACCOUNT header = %q, want %q", gotSubaccountHeader, "42")
+	}
+}
+
+func TestEnableTrackingDomainManagedCertificate_NotEligible(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"errors": []map[string]interface{}{
+				{"message": "Domain is not eligible for managed certificates due to Let's Encrypt policies"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	err := client.EnableTrackingDomainManagedCertificate("track.example.com", 0)
+	if err == nil {
+		t.Fatal("EnableTrackingDomainManagedCertificate() expected an error, got nil")
+	}
+}
+
 func TestVerifyTrackingDomain_Unverified(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
