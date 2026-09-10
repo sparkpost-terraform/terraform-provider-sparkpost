@@ -64,6 +64,9 @@ func (r *trackingDomainResource) Schema(ctx context.Context, req resource.Schema
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The domain name used as the resource ID",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}

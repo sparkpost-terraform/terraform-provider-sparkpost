@@ -9,6 +9,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -39,6 +42,9 @@ func (r *subaccountResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"id": schema.Int64Attribute{
 				Computed:            true,
 				MarkdownDescription: "The subaccount ID assigned by SparkPost",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -48,11 +54,17 @@ func (r *subaccountResource) Schema(ctx context.Context, req resource.SchemaRequ
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "One of `active`, `suspended` or `terminated`. Defaults to `active` on creation. Terminating is permanent: SparkPost has no way to reactivate a terminated subaccount.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"ip_pool": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "ID of the IP pool assigned to the subaccount",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
