@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -27,7 +26,6 @@ func NewTrackingDomainResource() resource.Resource {
 
 type trackingDomainResourceModel struct {
 	Domain     types.String `tfsdk:"domain"`
-	HTTPS      types.Bool   `tfsdk:"https"`
 	Subaccount types.Int64  `tfsdk:"subaccount"`
 	Id         types.String `tfsdk:"id"`
 }
@@ -44,14 +42,6 @@ func (r *trackingDomainResource) Schema(ctx context.Context, req resource.Schema
 				MarkdownDescription: "The domain to be used for tracking links",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"https": schema.BoolAttribute{
-				Optional:            true,
-				Computed:            true,
-				MarkdownDescription: "Specifies if the domain should use HTTPS",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"subaccount": schema.Int64Attribute{
@@ -97,16 +87,14 @@ func (r *trackingDomainResource) Create(ctx context.Context, req resource.Create
 
 	subaccount := int(plan.Subaccount.ValueInt64())
 	domain := plan.Domain.ValueString()
-	https := plan.HTTPS.ValueBool()
 
-	err := r.client.CreateTrackingDomain(domain, https, subaccount)
+	err := r.client.CreateTrackingDomain(domain, subaccount)
 	if err != nil {
 		resp.Diagnostics.AddError("Create Error", err.Error())
 		return
 	}
 
 	plan.Id = plan.Domain
-	plan.HTTPS = types.BoolValue(https)
 
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -134,7 +122,6 @@ func (r *trackingDomainResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	state.Domain = types.StringValue(t.Domain)
-	state.HTTPS = types.BoolValue(t.HTTPS)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -155,26 +142,7 @@ func (r *trackingDomainResource) ImportState(ctx context.Context, req resource.I
 }
 
 func (r *trackingDomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan trackingDomainResourceModel
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	subaccount := int(plan.Subaccount.ValueInt64())
-	domain := plan.Domain.ValueString()
-	https := plan.HTTPS.ValueBool()
-
-	err := r.client.UpdateTrackingDomain(domain, https, subaccount)
-	if err != nil {
-		resp.Diagnostics.AddError("Update Error", err.Error())
-		return
-	}
-
-	plan.Id = types.StringValue(domain)
-	diags = resp.State.Set(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+	// No-op: all attributes require replacement, so Terraform never calls Update.
 }
 
 func (r *trackingDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

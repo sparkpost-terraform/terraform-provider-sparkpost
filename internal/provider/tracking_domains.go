@@ -12,10 +12,15 @@ type TrackingDomain struct {
 	UsesManagedCertificate bool   `json:"uses_managed_certificate"`
 }
 
-func (c *SparkPostClient) CreateTrackingDomain(domain string, https bool, subaccount int) error {
+// CreateTrackingDomain creates the tracking domain without HTTPS. Use
+// UpdateTrackingDomain (via sparkpost_tracking_domain_https_configuration) to
+// enable it afterwards - SparkPost's verify endpoint checks for a valid SSL
+// certificate when secure=true, which only exists once a managed certificate
+// has been enabled, which itself requires the domain to already be verified.
+func (c *SparkPostClient) CreateTrackingDomain(domain string, subaccount int) error {
 	body := map[string]interface{}{
 		"domain": domain,
-		"secure": https,
+		"secure": false,
 	}
 
 	req, err := c.newRequest("POST", "tracking-domains", body)
@@ -110,6 +115,9 @@ func (c *SparkPostClient) UpdateTrackingDomain(domain string, https bool, subacc
 
 	resp, err := c.doRequest(req, 200)
 	if err != nil {
+		if isNotFound(err) {
+			return ErrTrackingDomainNotFound
+		}
 		return fmt.Errorf("update tracking domain request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
