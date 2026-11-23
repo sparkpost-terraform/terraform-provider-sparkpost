@@ -134,8 +134,16 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	shared := plan.Shared.ValueBool()
 	defaultBounce := plan.DefaultBounce.ValueBool()
 
-	err := r.client.CreateDomain(domain, subaccount, shared, defaultBounce)
-	if err != nil {
+	adopted, err := createOrAdopt(
+		func() error { return r.client.CreateDomain(domain, subaccount, shared, defaultBounce) },
+		func() (bool, error) {
+			_, getErr := r.client.GetDomain(domain, subaccount)
+			return getErr == nil, getErr
+		},
+	)
+	if adopted {
+		resp.Diagnostics.AddWarning("Domain registered despite create error", fmt.Sprintf("SparkPost registered %q but answered: %s", domain, err))
+	} else if err != nil {
 		resp.Diagnostics.AddError("Create Error", err.Error())
 		return
 	}

@@ -102,24 +102,31 @@ func (r *subaccountResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// From here the subaccount exists, so failures are warnings: an error
+	// would leave it out of state (and a later create would duplicate it) or
+	// taint it, and replacing it terminates it permanently.
+	plan.Id = types.Int64Value(int64(id))
+
 	// The create response doesn't carry status/ip_pool, so read the
 	// subaccount back to populate the rest of the state.
 	sa, err := r.client.GetSubaccount(id)
 	if err != nil {
-		resp.Diagnostics.AddError("Create Error", fmt.Sprintf("subaccount %d was created but could not be read back: %s", id, err))
+		resp.Diagnostics.AddWarning("Subaccount created but not read back", fmt.Sprintf("subaccount %d was created but could not be read back, so state will refresh on the next run: %s", id, err))
+		plan.Status = types.StringValue("active")
+		plan.IPPool = types.StringValue(ipPool)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 		return
 	}
 
 	// Status can't be set on create, so apply it as a follow-up update if requested.
 	if !plan.Status.IsNull() && !plan.Status.IsUnknown() && plan.Status.ValueString() != sa.Status {
 		if err := r.client.UpdateSubaccount(id, name, plan.Status.ValueString(), ipPool); err != nil {
-			resp.Diagnostics.AddError("Create Error", fmt.Sprintf("subaccount %d was created but failed to set initial status: %s", id, err))
-			return
+			resp.Diagnostics.AddWarning("Subaccount created without its initial status", fmt.Sprintf("subaccount %d was created as %q but setting status %q failed, so the next run will retry: %s", id, sa.Status, plan.Status.ValueString(), err))
+		} else {
+			sa.Status = plan.Status.ValueString()
 		}
-		sa.Status = plan.Status.ValueString()
 	}
 
-	plan.Id = types.Int64Value(int64(sa.ID))
 	plan.Status = types.StringValue(sa.Status)
 	plan.IPPool = types.StringValue(sa.IPPool)
 

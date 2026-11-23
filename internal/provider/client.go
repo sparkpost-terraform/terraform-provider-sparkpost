@@ -95,6 +95,12 @@ func isNotFound(err error) bool {
 	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
 }
 
+// isConflict reports whether err is an apiError with a 409 status.
+func isConflict(err error) bool {
+	var apiErr *apiError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusConflict
+}
+
 func (c *SparkPostClient) doRequest(req *http.Request, expectedCode int) (*http.Response, error) {
 	resp, err := c.client.Do(req)
 	if err != nil {

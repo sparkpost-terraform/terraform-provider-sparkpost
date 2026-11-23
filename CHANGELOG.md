@@ -3,6 +3,22 @@
 Notable changes to this provider, starting from the 1.0.0 release. Earlier
 0.x versions predate this file - see the GitHub releases for those.
 
+## Unreleased
+
+### Fixed
+
+- `sparkpost_domain` and `sparkpost_tracking_domain` no longer lose track of a
+  domain SparkPost registers while answering the create with an error, such
+  as 400 "Restricted domain". The domain is saved to state with a warning,
+  where every later run used to fail with a 409. A 409 from the create itself
+  still fails, so a domain that already existed needs an explicit import.
+- `sparkpost_subaccount` saves a newly created subaccount to state even when
+  reading it back or setting its initial status fails, with a warning, so a
+  retry no longer creates a duplicate.
+- `sparkpost_tracking_domain_https_configuration` skips enabling a managed
+  certificate that's already enabled, so a create that failed after that step
+  can be retried.
+
 ## 1.0.0
 
 First stable release. Changes below are relative to the last release, v0.3.3.
