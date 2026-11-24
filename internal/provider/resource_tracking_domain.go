@@ -88,8 +88,16 @@ func (r *trackingDomainResource) Create(ctx context.Context, req resource.Create
 	subaccount := int(plan.Subaccount.ValueInt64())
 	domain := plan.Domain.ValueString()
 
-	err := r.client.CreateTrackingDomain(domain, subaccount)
-	if err != nil {
+	adopted, err := createOrAdopt(
+		func() error { return r.client.CreateTrackingDomain(domain, subaccount) },
+		func() (bool, error) {
+			_, getErr := r.client.GetTrackingDomain(domain, subaccount)
+			return getErr == nil, getErr
+		},
+	)
+	if adopted {
+		resp.Diagnostics.AddWarning("Tracking domain registered despite create error", fmt.Sprintf("SparkPost registered %q but answered: %s", domain, err))
+	} else if err != nil {
 		resp.Diagnostics.AddError("Create Error", err.Error())
 		return
 	}

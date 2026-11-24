@@ -100,6 +100,15 @@ func (r *trackingDomainHTTPSConfigurationResource) Configure(ctx context.Context
 }
 
 func (r *trackingDomainHTTPSConfigurationResource) enableManagedCertificate(domain string, subaccount int) error {
+	// A create that failed after this step is retried, so don't repeat a step that's already done.
+	t, err := r.client.GetTrackingDomain(domain, subaccount)
+	if err != nil {
+		return err
+	}
+	if t.UsesManagedCertificate {
+		return nil
+	}
+
 	eligible, err := r.client.CheckTrackingDomainCertificateEligibility(domain, subaccount)
 	if err != nil {
 		return err
