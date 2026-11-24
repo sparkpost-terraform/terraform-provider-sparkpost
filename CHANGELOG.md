@@ -3,7 +3,7 @@
 Notable changes to this provider, starting from the 1.0.0 release. Earlier
 0.x versions predate this file - see the GitHub releases for those.
 
-## Unreleased
+## 1.0.1
 
 ### Fixed
 
