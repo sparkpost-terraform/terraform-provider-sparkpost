@@ -3,6 +3,14 @@
 Notable changes to this provider, starting from the 1.0.0 release. Earlier
 0.x versions predate this file - see the GitHub releases for those.
 
+## 1.1.0
+
+### Added
+
+- `sparkpost_domain` exposes `dkim_selector` and `dkim_public_key`, so the
+  DKIM TXT record that ownership verification needs can be created in the
+  same run.
+
 ## 1.0.1
 
 ### Fixed

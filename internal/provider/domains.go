@@ -12,6 +12,8 @@ type TargetDomain struct {
 	Domain                string `json:"domain"`
 	SharedWithSubaccounts bool   `json:"shared_with_subaccounts"`
 	DefaultBounceDomain   bool   `json:"is_default_bounce_domain"`
+	DKIMSelector          string
+	DKIMPublicKey         string
 }
 
 func (c *SparkPostClient) CreateDomain(domain string, subaccount int, shared bool, defaultBounce bool) error {
@@ -64,6 +66,10 @@ func (c *SparkPostClient) GetDomain(domain string, subaccount int) (*TargetDomai
 		Results struct {
 			SharedWithSubaccounts bool `json:"shared_with_subaccounts"`
 			IsDefaultBounceDomain bool `json:"is_default_bounce_domain"`
+			DKIM                  struct {
+				Selector string `json:"selector"`
+				Public   string `json:"public"`
+			} `json:"dkim"`
 		} `json:"results"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
@@ -74,6 +80,8 @@ func (c *SparkPostClient) GetDomain(domain string, subaccount int) (*TargetDomai
 		Domain:                domain,
 		SharedWithSubaccounts: body.Results.SharedWithSubaccounts,
 		DefaultBounceDomain:   body.Results.IsDefaultBounceDomain,
+		DKIMSelector:          body.Results.DKIM.Selector,
+		DKIMPublicKey:         body.Results.DKIM.Public,
 	}, nil
 }
 
