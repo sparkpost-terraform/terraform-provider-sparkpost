@@ -78,6 +78,7 @@ func (p *sparkpostProvider) Resources(ctx context.Context) []func() resource.Res
 		NewDomainResource,
 		NewDomainVerificationResource,
 		NewBounceVerificationResource,
+		NewDefaultBounceDomainResource,
 		NewTrackingDomainVerificationResource,
 		NewTrackingDomainAssociationResource,
 		NewTrackingDomainHTTPSConfigurationResource,

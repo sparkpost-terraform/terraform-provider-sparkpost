@@ -21,7 +21,7 @@ description: |-
 
 ### Optional
 
-- `default_bounce_domain` (Boolean) Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set
+- `default_bounce_domain` (Boolean) Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set. SparkPost only accepts it once the bounce domain is verified, so prefer `sparkpost_default_bounce_domain` ordered after `sparkpost_domain_bounce_verification`
 - `shared_with_subaccounts` (Boolean) Optional to share the domain with all subaccounts. Cannot be used if a subaccount is set
 - `subaccount` (Number) Optional subaccount ID for creating the tracking domain in
 

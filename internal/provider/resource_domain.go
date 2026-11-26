@@ -68,9 +68,8 @@ func (r *domainResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"default_bounce_domain": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set",
+				MarkdownDescription: "Optional to set as default bounce domain for the account. Cannot be used if a subaccount is set. SparkPost only accepts it once the bounce domain is verified, so prefer `sparkpost_default_bounce_domain` ordered after `sparkpost_domain_bounce_verification`",
 				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
@@ -151,7 +150,7 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	defaultBounce := plan.DefaultBounce.ValueBool()
 
 	adopted, err := createOrAdopt(
-		func() error { return r.client.CreateDomain(domain, subaccount, shared, defaultBounce) },
+		func() error { return r.client.CreateDomain(domain, subaccount, shared) },
 		func() (bool, error) {
 			_, getErr := r.client.GetDomain(domain, subaccount)
 			return getErr == nil, getErr
@@ -162,6 +161,13 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	} else if err != nil {
 		resp.Diagnostics.AddError("Create Error", err.Error())
 		return
+	}
+
+	if defaultBounce {
+		if err := r.client.SetDefaultBounceDomain(domain, subaccount, true); err != nil {
+			resp.Diagnostics.AddWarning("Default bounce domain not set", fmt.Sprintf("%q was created, but SparkPost didn't make it the default bounce domain, so the next apply will retry: %s", domain, err))
+			defaultBounce = false
+		}
 	}
 
 	plan.Id = plan.Domain
@@ -214,8 +220,24 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 	resp.Diagnostics.Append(diags...)
 }
 
+// Only default_bounce_domain can change in place; every other attribute requires replacement.
 func (r *domainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// No-op: all attributes require replacement, so Terraform never calls Update.
+	var plan, state domainResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !plan.DefaultBounce.Equal(state.DefaultBounce) {
+		err := r.client.SetDefaultBounceDomain(state.Id.ValueString(), int(state.Subaccount.ValueInt64()), plan.DefaultBounce.ValueBool())
+		if err != nil {
+			resp.Diagnostics.AddError("Update Error", err.Error())
+			return
+		}
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *domainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
