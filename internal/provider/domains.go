@@ -16,11 +16,11 @@ type TargetDomain struct {
 	DKIMPublicKey         string
 }
 
-func (c *SparkPostClient) CreateDomain(domain string, subaccount int, shared bool, defaultBounce bool) error {
+// SparkPost rejects is_default_bounce_domain on create, so it is set afterwards with SetDefaultBounceDomain.
+func (c *SparkPostClient) CreateDomain(domain string, subaccount int, shared bool) error {
 	body := map[string]interface{}{
-		"domain":                   domain,
-		"shared_with_subaccounts":  shared,
-		"is_default_bounce_domain": defaultBounce,
+		"domain":                  domain,
+		"shared_with_subaccounts": shared,
 	}
 
 	req, err := c.newRequest("POST", "sending-domains", body)
@@ -83,6 +83,32 @@ func (c *SparkPostClient) GetDomain(domain string, subaccount int) (*TargetDomai
 		DKIMSelector:          body.Results.DKIM.Selector,
 		DKIMPublicKey:         body.Results.DKIM.Public,
 	}, nil
+}
+
+func (c *SparkPostClient) SetDefaultBounceDomain(domain string, subaccount int, isDefault bool) error {
+	endpoint := fmt.Sprintf("sending-domains/%s", domain)
+
+	req, err := c.newRequest("PUT", endpoint, map[string]interface{}{
+		"is_default_bounce_domain": isDefault,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build update domain request: %w", err)
+	}
+
+	if subaccount > 0 {
+		req.Header.Set("X-MSYS-SUBACCOUNT", strconv.Itoa(subaccount))
+	}
+
+	resp, err := c.doRequest(req, 200)
+	if err != nil {
+		if isNotFound(err) {
+			return ErrDomainNotFound
+		}
+		return fmt.Errorf("update domain request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	return nil
 }
 
 func (c *SparkPostClient) DeleteDomain(domain string, subaccount int) error {

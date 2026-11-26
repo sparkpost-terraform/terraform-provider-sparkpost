@@ -3,6 +3,22 @@
 Notable changes to this provider, starting from the 1.0.0 release. Earlier
 0.x versions predate this file - see the GitHub releases for those.
 
+## 1.2.0
+
+### Added
+
+- `sparkpost_default_bounce_domain` makes a bounce domain the account's
+  default. SparkPost only accepts that once the bounce CNAME is verified, so
+  it can be ordered after `sparkpost_domain_bounce_verification`.
+
+### Fixed
+
+- Changing `default_bounce_domain` on `sparkpost_domain` updates the domain
+  in place instead of replacing it. Replacing it deleted the domain, then
+  failed to recreate it, because SparkPost rejects `is_default_bounce_domain`
+  on create. A new domain is now always created without it, then set as the
+  default afterwards, with a warning if SparkPost refuses.
+
 ## 1.1.0
 
 ### Added

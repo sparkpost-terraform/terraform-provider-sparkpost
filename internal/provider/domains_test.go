@@ -17,7 +17,7 @@ func TestCreateDomain_SetsSubaccountHeader(t *testing.T) {
 	defer server.Close()
 
 	client := NewSparkPostClient(server.URL+"/", "test-key")
-	if err := client.CreateDomain("example.com", 12345, false, false); err != nil {
+	if err := client.CreateDomain("example.com", 12345, false); err != nil {
 		t.Fatalf("CreateDomain() error = %v", err)
 	}
 	if gotHeader != "12345" {
@@ -116,5 +116,60 @@ func TestGetTrackingDomainAssociation_NotFound(t *testing.T) {
 	_, err := client.GetTrackingDomainAssociation("example.com", 0, "track.example.com")
 	if !errors.Is(err, ErrDomainNotFound) {
 		t.Errorf("GetTrackingDomainAssociation() error = %v, want ErrDomainNotFound", err)
+	}
+}
+
+func TestCreateDomain_LeavesDefaultBounceOut(t *testing.T) {
+	var gotBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	if err := client.CreateDomain("bounces.example.com", 0, false); err != nil {
+		t.Fatalf("CreateDomain() error = %v", err)
+	}
+	if _, ok := gotBody["is_default_bounce_domain"]; ok {
+		t.Errorf("CreateDomain() body = %v, want no is_default_bounce_domain", gotBody)
+	}
+}
+
+func TestSetDefaultBounceDomain_Success(t *testing.T) {
+	var gotMethod, gotPath, gotHeader string
+	var gotBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath, gotHeader = r.Method, r.URL.Path, r.Header.Get("X-MSYS-SUBACCOUNT")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	if err := client.SetDefaultBounceDomain("bounces.example.com", 12345, true); err != nil {
+		t.Fatalf("SetDefaultBounceDomain() error = %v", err)
+	}
+	if gotMethod != http.MethodPut || gotPath != "/sending-domains/bounces.example.com" {
+		t.Errorf("request = %s %s, want PUT /sending-domains/bounces.example.com", gotMethod, gotPath)
+	}
+	if gotHeader != "12345" {
+		t.Errorf("X-MSYS-SUBACCOUNT header = %q, want %q", gotHeader, "12345")
+	}
+	if gotBody["is_default_bounce_domain"] != true {
+		t.Errorf("body = %v, want is_default_bounce_domain true", gotBody)
+	}
+}
+
+func TestSetDefaultBounceDomain_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := NewSparkPostClient(server.URL+"/", "test-key")
+	err := client.SetDefaultBounceDomain("bounces.example.com", 0, false)
+	if !errors.Is(err, ErrDomainNotFound) {
+		t.Errorf("SetDefaultBounceDomain() error = %v, want ErrDomainNotFound", err)
 	}
 }
