@@ -31,6 +31,8 @@ type domainResourceModel struct {
 	Id            types.String `tfsdk:"id"`
 	Shared        types.Bool   `tfsdk:"shared_with_subaccounts"`
 	DefaultBounce types.Bool   `tfsdk:"default_bounce_domain"`
+	DKIMSelector  types.String `tfsdk:"dkim_selector"`
+	DKIMPublicKey types.String `tfsdk:"dkim_public_key"`
 }
 
 func (r *domainResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -75,6 +77,20 @@ func (r *domainResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The domain name used as the resource ID",
+			},
+			"dkim_selector": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Selector of the domain's DKIM key. Publish the key as a TXT record at `<selector>._domainkey.<domain>`",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"dkim_public_key": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Public DKIM key for the TXT record, used as `v=DKIM1; k=rsa; h=sha256; p=<dkim_public_key>`",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -151,6 +167,17 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.Id = plan.Domain
 	plan.Shared = types.BoolValue(shared)
 	plan.DefaultBounce = types.BoolValue(defaultBounce)
+	plan.DKIMSelector = types.StringNull()
+	plan.DKIMPublicKey = types.StringNull()
+
+	// The create response only includes the DKIM key when SparkPost generated one, so read it back.
+	d, err := r.client.GetDomain(domain, subaccount)
+	if err != nil {
+		resp.Diagnostics.AddWarning("DKIM key not read", fmt.Sprintf("The next refresh will fill it in: %s", err))
+	} else {
+		plan.DKIMSelector = optionalString(d.DKIMSelector)
+		plan.DKIMPublicKey = optionalString(d.DKIMPublicKey)
+	}
 
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -180,6 +207,8 @@ func (r *domainResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.Domain = types.StringValue(d.Domain)
 	state.Shared = types.BoolValue(d.SharedWithSubaccounts)
 	state.DefaultBounce = types.BoolValue(d.DefaultBounceDomain)
+	state.DKIMSelector = optionalString(d.DKIMSelector)
+	state.DKIMPublicKey = optionalString(d.DKIMPublicKey)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -221,4 +250,11 @@ func (r *domainResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	resp.State.RemoveResource(ctx)
+}
+
+func optionalString(s string) types.String {
+	if s == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
 }

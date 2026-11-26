@@ -27,6 +27,8 @@ description: |-
 
 ### Read-Only
 
+- `dkim_public_key` (String) Public DKIM key for the TXT record, used as `v=DKIM1; k=rsa; h=sha256; p=<dkim_public_key>`
+- `dkim_selector` (String) Selector of the domain's DKIM key. Publish the key as a TXT record at `<selector>._domainkey.<domain>`
 - `id` (String) The domain name used as the resource ID
 
 ## Import

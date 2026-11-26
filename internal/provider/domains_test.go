@@ -32,6 +32,11 @@ func TestGetDomain_Success(t *testing.T) {
 			"results": map[string]interface{}{
 				"shared_with_subaccounts":  true,
 				"is_default_bounce_domain": false,
+				"dkim": map[string]interface{}{
+					"selector": "scph0118",
+					"public":   "MIGfMA0GCSqGSIb3DQEB",
+					"headers":  "from:to:subject:date",
+				},
 			},
 		})
 	}))
@@ -43,7 +48,7 @@ func TestGetDomain_Success(t *testing.T) {
 		t.Fatalf("GetDomain() error = %v", err)
 	}
 
-	want := &TargetDomain{Domain: "example.com", SharedWithSubaccounts: true, DefaultBounceDomain: false}
+	want := &TargetDomain{Domain: "example.com", SharedWithSubaccounts: true, DefaultBounceDomain: false, DKIMSelector: "scph0118", DKIMPublicKey: "MIGfMA0GCSqGSIb3DQEB"}
 	if *got != *want {
 		t.Errorf("GetDomain() = %+v, want %+v", *got, *want)
 	}
